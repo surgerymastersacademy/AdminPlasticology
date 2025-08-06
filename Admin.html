@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - Plasticology</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-content {
+            transition: transform 0.25s ease;
+        }
+    </style>
+</head>
+<body>
+
+
+    <!-- شاشة الحماية بكلمة مرور -->
+    <div id="password-protection" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-sm">
+            <h2 class="text-2xl font-bold mb-4 text-center">لوحة التحكم</h2>
+            <p class="text-center text-gray-600 mb-6">الرجاء إدخال كلمة المرور للوصول.</p>
+            <input type="password" id="admin-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="كلمة المرور">
+            <p id="password-error" class="text-red-500 text-sm mt-2 hidden">كلمة المرور غير صحيحة.</p>
+            <button id="password-submit" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline">
+                دخول
+            </button>
+        </div>
+    </div>
+
+
+    <!-- المحتوى الرئيسي للوحة التحكم (مخفي افتراضيًا) -->
+    <div id="admin-console" class="hidden">
+        <header class="bg-slate-800 text-white p-4 shadow-md">
+            <h1 class="text-2xl font-bold">لوحة تحكم Plasticology</h1>
+        </header>
+
+
+        <main class="container mx-auto p-4 md:p-6">
+            <!-- أزرار التنقل بين الجداول -->
+            <div id="table-nav" class="mb-6 flex flex-wrap gap-2">
+                <button data-sheet="Questions" class="nav-btn bg-blue-600 text-white py-2 px-4 rounded-lg shadow hover:bg-blue-700">
+                    <i class="fas fa-question-circle mr-2"></i>بنك الأسئلة (MCQ)
+                </button>
+                <!-- يمكنك إضافة أزرار أخرى هنا لاحقًا -->
+                <!--
+                <button data-sheet="Lectures" class="nav-btn bg-gray-500 text-white py-2 px-4 rounded-lg shadow hover:bg-gray-600">
+                    <i class="fas fa-video mr-2"></i>المحاضرات
+                </button>
+                -->
+            </div>
+
+
+            <!-- أدوات التحكم بالجدول -->
+            <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <h2 id="current-table-title" class="text-xl font-bold text-slate-700"></h2>
+                    <div class="flex items-center gap-4 w-full md:w-auto">
+                        <div class="relative flex-grow">
+                             <input type="text" id="search-input" placeholder="ابحث في الجدول..." class="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                        <button id="add-new-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex-shrink-0">
+                            <i class="fas fa-plus mr-2"></i>إضافة جديد
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- منطقة عرض الجدول -->
+            <div id="table-container" class="bg-white rounded-lg shadow-md overflow-x-auto">
+                <div id="loader" class="text-center p-10">
+                    <i class="fas fa-spinner fa-spin fa-3x text-blue-500"></i>
+                    <p class="mt-2 text-slate-600">جاري تحميل البيانات...</p>
+                </div>
+                <table id="data-table" class="min-w-full divide-y divide-gray-200 hidden">
+                    <thead id="table-head" class="bg-gray-50">
+                        <!-- سيتم إنشاء العناوين هنا بواسطة JavaScript -->
+                    </thead>
+                    <tbody id="table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- سيتم إنشاء الصفوف هنا بواسطة JavaScript -->
+                    </tbody>
+                </table>
+                 <p id="no-results" class="text-center p-10 text-slate-500 hidden">لا توجد نتائج تطابق بحثك.</p>
+            </div>
+        </main>
+    </div>
+
+
+    <!-- نافذة منبثقة (Modal) للإضافة والتعديل -->
+    <div id="form-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-40 hidden opacity-0">
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-3xl transform -translate-y-10">
+            <div class="p-6 border-b">
+                <h3 id="modal-title" class="text-2xl font-bold">إضافة/تعديل عنصر</h3>
+            </div>
+            <div id="modal-body" class="p-6 max-h-[70vh] overflow-y-auto">
+                <!-- سيتم إنشاء حقول النموذج هنا بواسطة JavaScript -->
+            </div>
+            <div class="p-6 bg-gray-50 rounded-b-lg flex justify-end gap-4">
+                <button id="modal-cancel-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">إلغاء</button>
+                <button id="modal-save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">حفظ التغييرات</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- الإعدادات الرئيسية ---
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzx8gRgbYZw8Rrg348q2dlsRd7yQ9IXUNUPBDUf-Q5Wb9LntLuKY-ozmnbZOOuQsDU_3w/exec';
+        const ADMIN_PASSWORD = "jesus1love"; // <-- غيّر كلمة المرور هنا
+
+
+        // --- عناصر الواجهة ---
+        const passwordProtection = document.getElementById('password-protection');
+        const adminConsole = document.getElementById('admin-console');
+        const adminPasswordInput = document.getElementById('admin-password');
+        const passwordSubmitBtn = document.getElementById('password-submit');
+        const passwordError = document.getElementById('password-error');
+       
+        const tableNav = document.getElementById('table-nav');
+        const currentTableTitle = document.getElementById('current-table-title');
+        const searchInput = document.getElementById('search-input');
+        const addNewBtn = document.getElementById('add-new-btn');
+       
+        const tableContainer = document.getElementById('table-container');
+        const loader = document.getElementById('loader');
+        const dataTable = document.getElementById('data-table');
+        const tableHead = document.getElementById('table-head');
+        const tableBody = document.getElementById('table-body');
+        const noResults = document.getElementById('no-results');
+
+
+        const formModal = document.getElementById('form-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        const modalSaveBtn = document.getElementById('modal-save-btn');
+
+
+        let currentSheet = 'Questions';
+        let allData = [];
+        let currentHeaders = [];
+        let editingRowId = null;
+
+
+        // --- منطق الحماية بكلمة مرور ---
+        passwordSubmitBtn.addEventListener('click', () => {
+            if (adminPasswordInput.value === ADMIN_PASSWORD) {
+                passwordProtection.style.display = 'none';
+                adminConsole.classList.remove('hidden');
+                loadSheetData(currentSheet);
+            } else {
+                passwordError.classList.remove('hidden');
+            }
+        });
+        adminPasswordInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') passwordSubmitBtn.click();
+        });
+
+
+
+
+        // --- تحميل وعرض البيانات ---
+        async function loadSheetData(sheetName) {
+            currentSheet = sheetName;
+            dataTable.classList.add('hidden');
+            loader.classList.remove('hidden');
+            noResults.classList.add('hidden');
+            currentTableTitle.textContent = `إدارة: ${sheetName}`;
+
+
+            try {
+                const response = await fetch(`${API_URL}?request=getSheetData&sheetName=${sheetName}`);
+                if (!response.ok) throw new Error('Network response was not ok.');
+               
+                const result = await response.json();
+                if (!result.success) throw new Error(result.message);
+
+
+                allData = result.data;
+                currentHeaders = result.headers;
+                renderTable(allData);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                tableContainer.innerHTML = `<p class="text-red-500 text-center p-10">فشل تحميل البيانات: ${error.message}</p>`;
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+
+
+        function renderTable(data) {
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
+
+
+            if (data.length === 0) {
+                noResults.classList.remove('hidden');
+                dataTable.classList.add('hidden');
+                return;
+            }
+           
+            noResults.classList.add('hidden');
+            dataTable.classList.remove('hidden');
+
+
+            // إنشاء العناوين
+            const headerRow = document.createElement('tr');
+            currentHeaders.forEach(header => {
+                const th = document.createElement('th');
+                th.scope = 'col';
+                th.className = 'px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider';
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+            const actionsTh = document.createElement('th');
+            actionsTh.scope = 'col';
+            actionsTh.className = 'px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider';
+            actionsTh.textContent = 'إجراءات';
+            headerRow.appendChild(actionsTh);
+            tableHead.appendChild(headerRow);
+
+
+            // إنشاء الصفوف
+            data.forEach(rowData => {
+                const row = document.createElement('tr');
+                currentHeaders.forEach(header => {
+                    const td = document.createElement('td');
+                    td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-700';
+                    let cellContent = rowData[header] || '';
+                    if (typeof cellContent === 'string' && cellContent.length > 70) {
+                        cellContent = cellContent.substring(0, 70) + '...';
+                    }
+                    td.textContent = cellContent;
+                    row.appendChild(td);
+                });
+
+
+                // إضافة أزرار الإجراءات
+                const actionsTd = document.createElement('td');
+                actionsTd.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2';
+                actionsTd.innerHTML = `
+                    <button class="edit-btn text-indigo-600 hover:text-indigo-900" title="تعديل"><i class="fas fa-edit"></i></button>
+                    <button class="delete-btn text-red-600 hover:text-red-900" title="حذف"><i class="fas fa-trash"></i></button>
+                `;
+                actionsTd.querySelector('.edit-btn').addEventListener('click', () => openEditModal(rowData));
+                actionsTd.querySelector('.delete-btn').addEventListener('click', () => deleteRow(rowData.UniqueID));
+
+
+                row.appendChild(actionsTd);
+                tableBody.appendChild(row);
+            });
+        }
+
+
+        // --- البحث والتنقل ---
+        searchInput.addEventListener('keyup', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredData = allData.filter(row =>
+                Object.values(row).some(value =>
+                    String(value).toLowerCase().includes(searchTerm)
+                )
+            );
+            renderTable(filteredData);
+        });
+
+
+        tableNav.addEventListener('click', (e) => {
+            if (e.target.classList.contains('nav-btn')) {
+                tableNav.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.remove('bg-blue-600');
+                    btn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+                });
+                e.target.classList.add('bg-blue-600');
+                e.target.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+                loadSheetData(e.target.dataset.sheet);
+            }
+        });
+
+
+        // --- منطق النافذة المنبثقة (Modal) ---
+        function openModal(title, rowData = null) {
+            modalTitle.textContent = title;
+            modalBody.innerHTML = '';
+            editingRowId = rowData ? rowData.UniqueID : null;
+
+
+            currentHeaders.forEach(header => {
+                if (header === 'UniqueID') return; // لا نسمح بتعديل UniqueID
+
+
+                const value = rowData ? rowData[header] : '';
+                const formGroup = document.createElement('div');
+                formGroup.className = 'mb-4';
+               
+                const label = document.createElement('label');
+                label.className = 'block text-gray-700 text-sm font-bold mb-2';
+                label.textContent = header;
+                formGroup.appendChild(label);
+
+
+                // استخدم textarea للحقول الطويلة
+                if (header.toLowerCase().includes('question') || header.toLowerCase().includes('rationale')) {
+                    const textarea = document.createElement('textarea');
+                    textarea.id = `field-${header}`;
+                    textarea.className = 'shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500';
+                    textarea.rows = 3;
+                    textarea.value = value;
+                    formGroup.appendChild(textarea);
+                } else {
+                    const input = document.createElement('input');
+                    input.id = `field-${header}`;
+                    input.type = 'text';
+                    input.className = 'shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500';
+                    input.value = value;
+                    formGroup.appendChild(input);
+                }
+                modalBody.appendChild(formGroup);
+            });
+
+
+            formModal.classList.remove('hidden');
+            setTimeout(() => {
+                formModal.classList.remove('opacity-0');
+                formModal.querySelector('.modal-content').classList.remove('-translate-y-10');
+            }, 10);
+        }
+
+
+        function closeModal() {
+            formModal.classList.add('opacity-0');
+            formModal.querySelector('.modal-content').classList.add('-translate-y-10');
+            setTimeout(() => formModal.classList.add('hidden'), 250);
+        }
+
+
+        addNewBtn.addEventListener('click', () => openModal(`إضافة عنصر جديد في ${currentSheet}`));
+        modalCancelBtn.addEventListener('click', closeModal);
+
+
+        function openEditModal(rowData) {
+            openModal(`تعديل عنصر في ${currentSheet}`, rowData);
+        }
+
+
+        // --- عمليات الحفظ والتعديل والحذف ---
+        modalSaveBtn.addEventListener('click', async () => {
+            const payload = {
+                sheetName: currentSheet,
+                rowData: {}
+            };
+
+
+            currentHeaders.forEach(header => {
+                if (header === 'UniqueID') return;
+                const field = document.getElementById(`field-${header}`);
+                if (field) {
+                    payload.rowData[header] = field.value;
+                }
+            });
+
+
+            if (editingRowId) {
+                payload.eventType = 'updateRow';
+                payload.rowData.UniqueID = editingRowId;
+            } else {
+                payload.eventType = 'addRow';
+            }
+
+
+            modalSaveBtn.disabled = true;
+            modalSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> جاري الحفظ...';
+
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Important for simple triggers in Apps Script
+                    body: JSON.stringify(payload)
+                });
+                // Since it's no-cors, we can't read the response, but we assume success
+                closeModal();
+                loadSheetData(currentSheet); // Reload data to show changes
+            } catch (error) {
+                console.error('Error saving data:', error);
+                alert('حدث خطأ أثناء حفظ البيانات.');
+            } finally {
+                modalSaveBtn.disabled = false;
+                modalSaveBtn.textContent = 'حفظ التغييرات';
+            }
+        });
+
+
+        async function deleteRow(uniqueId) {
+            if (!confirm('هل أنت متأكد من أنك تريد حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.')) {
+                return;
+            }
+
+
+            const payload = {
+                eventType: 'deleteRow',
+                sheetName: currentSheet,
+                uniqueId: uniqueId
+            };
+
+
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify(payload)
+                });
+                loadSheetData(currentSheet); // Reload data
+            } catch (error) {
+                console.error('Error deleting data:', error);
+                alert('حدث خطأ أثناء حذف البيانات.');
+            }
+        }
+
+
+    });
+    </script>
+</body>
+</html>
+
+
+
